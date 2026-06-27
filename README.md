@@ -507,11 +507,21 @@ Azure 또는 Elice eval은 credit을 사용하고 외부 서비스 상태에 의
 
 ## 7. Part C. 개선 실험
 
-### 7.1 Hypothesis
+Part C는 "점수가 가장 잘 나오는 조합을 찾았다"가 아니라, 같은 Eval Harness로 가설을 검증하고 failure mode를 기록하는 방식으로 진행했습니다. Gold Set이 20문항으로 작기 때문에 반복 실험을 많이 할수록 해당 Gold Set에 과적합될 수 있습니다. 그래서 결과 해석은 metric 상승 여부만 보지 않고, 어떤 실패가 관찰됐고 다음 설계 판단이 어떻게 바뀌었는지까지 함께 기록했습니다.
+
+### 7.1 Experiment Policy
+
+- 같은 Gold Set과 같은 metric으로 before/after를 비교합니다.
+- 지표가 하락한 실험도 숨기지 않고 남깁니다.
+- 개선 여부보다 가설, 측정, 원인 해석, 다음 실험 방향을 명확히 기록합니다.
+- 같은 20문항에 대한 반복 tuning은 Gold Set overfitting 위험이 있으므로, metric 상승은 보수적으로 해석합니다.
+- 최종 설정은 단일 metric이 아니라 retrieval, citation, refusal, judge 진단, 구현 복잡도를 함께 보고 결정합니다.
+
+### 7.2 Hypothesis
 
 > Heading-aware chunking과 score threshold를 적용하면 문서 구조가 보존되고 낮은 근거성의 질문이 generation 전에 차단되므로 `citation_hit_rate`와 `refusal_accuracy`가 상승할 것이다.
 
-### 7.2 Before / After Result
+### 7.3 Before / After Result
 
 Baseline:
 
@@ -544,18 +554,30 @@ Mock/local 기준 before/after 결과:
 | refusal_accuracy | 1.0000 | 1.0000 | +0.0000 |
 | faithfulness | 0.9000 | 0.8500 | -0.0500 |
 
-### 7.3 Analysis
+### 7.4 Experiment Log
+
+| Experiment | 목적 | Provider | 결과 | 설계 판단 |
+|---|---|---|---|---|
+| Fixed-size baseline vs heading-aware chunking | 문서 구조 보존이 retrieval/citation 품질을 높이는지 확인 | Elice chat + Elice embedding | Elice 기준 heading-aware가 baseline보다 낮은 metric 기록 | heading-aware가 항상 우월하지 않으며, Elice embedding 기준으로는 넓은 fixed chunk가 source hit에 유리할 수 있음 |
+| 같은 실험의 mock/local 검증 | 비용 없이 반복 가능한 regression signal 확인 | mock chat + local deterministic embedding | retrieval은 소폭 상승했지만 citation과 faithfulness는 하락 | local fallback은 개발/CI용 signal이지 최종 품질 판단 기준은 아님 |
+| LLM-as-a-judge 보조 진단 | deterministic metric이 놓치는 semantic correctness 확인 | Elice GPT-5 mini judge | judge_score 0.7625, judge_pass_rate 0.6000 | source/citation hit가 맞아도 acceptance criteria 일부 누락이 있을 수 있어 answer quality 개선 여지가 있음 |
+
+### 7.5 Analysis
 
 가설은 Elice provider 기준에서는 지지되지 않았습니다. Elice Text Embedding 3 Small에서는 fixed-size chunking baseline이 이미 top-3에서 expected source를 잘 검색했습니다. 반면 heading-aware chunking은 문서를 더 세밀하게 나누면서 일부 질문에서 expected source와 citation selection이 어긋났습니다.
 
 이 결과는 chunking 전략이 항상 한 방향으로 좋아지는 것이 아니라, embedding model의 품질과 corpus 구조에 따라 달라진다는 점을 보여줍니다. 특히 답변 생성에는 넓은 문맥이 유리할 수 있고, citation에는 더 좁고 정확한 근거가 유리할 수 있습니다. 다음 개선에서는 answer context selection과 citation selection을 분리하는 것이 더 적절하다고 판단했습니다.
 
-### 7.4 Next Steps
+LLM-as-a-judge 결과도 같은 방향의 시사점을 줍니다. deterministic metric은 expected source와 citation hit를 잘 확인하지만, 답변이 acceptance criteria를 모두 충족했는지는 더 엄격하게 보지 못합니다. Judge는 일부 답변에서 groundedness는 높게 보면서도 correctness를 낮게 평가했습니다. 즉 다음 개선은 단순히 더 많은 chunk를 넣는 것이 아니라, 검색된 문맥에서 어떤 정보를 답변에 반드시 포함해야 하는지 answer construction을 더 명확히 하는 방향이어야 합니다.
+
+### 7.6 Next Steps
 
 - exact query term overlap과 heading proximity를 반영하는 lightweight reranker를 추가합니다.
 - answer context selection과 citation selection을 분리합니다.
+- acceptance criteria coverage를 점검하는 answer checklist 또는 post-generation verifier를 실험합니다.
 - refusal 질문을 ambiguous, partial-answer, policy-like 질문으로 확장합니다.
 - chunk size와 overlap을 별도 hyperparameter로 두고 Elice embedding 기준 sweep을 실행합니다.
+- Gold Set을 20문항에서 더 확장해 반복 tuning에 따른 overfitting 위험을 줄입니다.
 - CI에서 mock/local eval regression check를 실행합니다.
 
 ## 8. 핵심 Design Decision 및 Trade-off
