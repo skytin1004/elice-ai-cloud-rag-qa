@@ -67,7 +67,7 @@ flowchart TB
     subgraph B1["Part B - Evaluation Harness"]
         GOLD["eval/gold_set.jsonl<br/>20 questions + evidence"]
         RUN["eval/runner.py<br/>single-command evaluation"]
-        MET["eval/metrics.py<br/>retrieval / citation / refusal / faithfulness"]
+        MET["eval/metrics.py + judge.py<br/>deterministic metrics / optional LLM judge"]
         REP["eval/report.py<br/>Markdown + JSON reports"]
         GOLD --> RUN --> PIPE
         RUN --> MET --> REP
@@ -100,7 +100,7 @@ flowchart TB
 | Hallucination 방지 | `src/elice_rag/rag/generate.py` | score threshold와 keyword overlap 기반 `insufficient_context` 반환 |
 | Request / Response Schema | `src/elice_rag/rag/schemas.py` | `QueryRequest`, `QueryResponse`, citation, retrieved context schema |
 | Gold Set | `eval/gold_set.jsonl`, `src/elice_rag/eval/gold_set.py` | 20개 질의와 기대 근거 로드 |
-| Metric 및 Report | `src/elice_rag/eval/metrics.py`, `report.py` | metric 계산과 Markdown/JSON report 생성 |
+| Metric 및 Report | `src/elice_rag/eval/metrics.py`, `judge.py`, `report.py` | deterministic metric, optional LLM judge, Markdown/JSON report 생성 |
 | Before / After 실험 | `src/elice_rag/eval/experiment.py` | fixed baseline과 heading-aware 개선안 비교 |
 
 Provider 의존성은 `ChatClient`, `EmbeddingClient` 인터페이스 뒤에 두었습니다. Elice endpoint 구조, Azure 설정, mock provider, local embedding fallback이 RAG core logic으로 퍼지지 않도록 하기 위한 결정입니다.
@@ -202,6 +202,12 @@ Gold Set 전체 평가:
 python -m elice_rag.eval.runner --gold eval/gold_set.jsonl --out eval/reports/elice-final.md --label elice-final
 ```
 
+LLM-as-a-judge 보조 평가 포함:
+
+```powershell
+python -m elice_rag.eval.runner --gold eval/gold_set.jsonl --out eval/reports/elice-final-judge.md --label elice-final-judge --judge
+```
+
 Part C before/after 실험:
 
 ```powershell
@@ -264,7 +270,8 @@ Text Embedding 3 Small을 선택한 이유:
 | FastAPI | Pydantic 기반 request/response schema와 OpenAPI 문서를 자동으로 제공합니다. | Flask는 가볍지만 schema 관리를 직접 해야 합니다. |
 | 직접 구현한 RAG pipeline | chunking, retrieval, citation, refusal, eval metric의 내부 동작을 설명하기 위해 선택했습니다. | LangChain, LlamaIndex, Semantic Kernel은 빠른 prototype에는 좋지만, 이번 과제에서는 black box처럼 보이지 않는 것이 더 중요했습니다. |
 | local JSON vector index | 20개 문서 규모에서는 충분하고, 설치 없이 index 구조를 직접 확인할 수 있습니다. | ChromaDB, FAISS, pgvector는 대규모 검색에는 더 적합하지만 제출 환경 setup이 무거워질 수 있습니다. |
-| deterministic eval metric | 비용 없이 반복 가능한 regression signal을 얻기 위해 선택했습니다. | LLM-as-a-judge는 semantic 판단이 가능하지만 judge prompt 안정성, 비용, model bias 관리가 필요합니다. |
+| deterministic eval metric | 비용 없이 반복 가능한 regression signal을 얻기 위해 선택했습니다. | semantic correctness와 answer groundedness를 완전히 판단하지는 못합니다. |
+| optional LLM-as-a-judge | deterministic metric이 놓치는 answer quality와 groundedness 문제를 보조적으로 확인하기 위해 추가했습니다. | judge prompt 안정성, 비용, model bias, human alignment 관리를 별도로 설명해야 합니다. |
 
 ## 5. Part A. RAG QA Service
 
@@ -405,10 +412,21 @@ data: {"status":"answered","answer":"...","citations":[...],"confidence":"high",
 | `citation_hit_rate` | 최종 citation에 expected source가 포함되는지 | citation은 사용자가 답변을 검증하는 핵심 장치이기 때문에 |
 | `refusal_accuracy` | 답이 없는 질문을 `insufficient_context`로 반환하는지 | hallucination 방지 동작을 직접 확인하기 위해 |
 | `faithfulness` | response status, citation, retrieved context, expected source hit 기반 proxy | LLM judge 없이 회귀 신호를 얻기 위해 |
+| `judge_groundedness` | LLM judge가 답변의 factual claim이 retrieved context로 뒷받침되는지 평가 | deterministic proxy가 놓치는 unsupported claim을 찾기 위해 |
+| `judge_correctness` | LLM judge가 acceptance criteria 충족 여부를 평가 | URL hit만으로 판단하기 어려운 semantic correctness를 확인하기 위해 |
+| `judge_score` | groundedness와 correctness 평균 | 보조적인 answer quality signal로 사용하기 위해 |
 
-LLM-as-a-judge는 기본 평가에 넣지 않았습니다. judge model 호출 비용, judge prompt 안정성, model bias, human alignment 문제를 별도로 관리해야 하기 때문입니다. 대신 deterministic metric으로 재현 가능한 regression signal을 먼저 확보했습니다.
+기본 평가는 deterministic metric을 사용합니다. 이 경로는 비용이 들지 않고, 같은 index와 같은 response에 대해 반복 가능한 regression signal을 제공합니다. 다만 deterministic metric은 expected source URL이 맞았는지에는 강하지만, 답변이 acceptance criteria를 의미적으로 충분히 만족했는지나 citation이 답변의 모든 factual claim을 뒷받침하는지는 완전히 판단하지 못합니다.
 
-향후 LLM-as-a-judge를 추가한다면 judge prompt와 rubric을 고정하고, model version과 temperature를 기록하며, human calibration set으로 judge alignment를 확인할 계획입니다.
+이를 보완하기 위해 `--judge` 옵션으로 LLM-as-a-judge 보조 평가를 추가했습니다. Judge는 고정 rubric, JSON output schema, `temperature=0.0`, model/version 기록, retrieved context 기반 평가를 사용합니다. Judge 결과는 최종 pass/fail의 단독 기준이 아니라 deterministic metric이 높게 나온 사례 중에서도 답변 품질이나 acceptance criteria 충족이 부족한 사례를 찾기 위한 보조 신호로 사용합니다.
+
+Judge prompt의 신뢰성과 일관성은 다음 방식으로 관리했습니다.
+
+- Judge는 retrieved context, citation, answer, acceptance criteria만 사용하고 외부 지식은 사용하지 않도록 지시했습니다.
+- 출력은 `groundedness`, `correctness`, `judge_pass`, `rationale` JSON schema로 고정했습니다.
+- sampling 변동을 줄이기 위해 `temperature=0.0`으로 호출합니다.
+- report에 judge model, provider, max context chars, 실행 commit을 기록합니다.
+- Human alignment는 Gold Set의 acceptance criteria를 사람이 직접 작성하고, judge rationale을 함께 검토하는 방식으로 맞췄습니다.
 
 ### 6.3 Evaluation 실행 방식
 
@@ -416,6 +434,12 @@ Gold Set 전체 평가:
 
 ```powershell
 python -m elice_rag.eval.runner --gold eval/gold_set.jsonl --out eval/reports/elice-final.md --label elice-final
+```
+
+LLM-as-a-judge 포함 평가:
+
+```powershell
+python -m elice_rag.eval.runner --gold eval/gold_set.jsonl --out eval/reports/elice-final-judge.md --label elice-final-judge --judge
 ```
 
 최종 Elice 평가 결과:
@@ -428,6 +452,17 @@ python -m elice_rag.eval.runner --gold eval/gold_set.jsonl --out eval/reports/el
 | faithfulness | 0.9250 |
 
 이 결과는 Elice Serverless `openai/gpt-5-mini`와 Elice Text Embedding 3 Small `openai/text-embedding-3-small` 조합으로 Gold Set 20문항 전체를 실행한 결과입니다.
+
+LLM-as-a-judge 보조 평가 결과:
+
+| Metric | Score |
+|---|---:|
+| judge_groundedness | 0.8500 |
+| judge_correctness | 0.6750 |
+| judge_score | 0.7625 |
+| judge_pass_rate | 0.6000 |
+
+Judge 결과는 deterministic metric보다 엄격했습니다. 예를 들어 retrieved source와 citation은 맞았지만 acceptance criteria 일부를 누락한 답변은 deterministic faithfulness에서는 높게 잡히고, judge correctness에서는 부분 감점되었습니다. 이 차이는 LLM-as-a-judge를 최종 단독 점수로 쓰기보다, Gold Set 개선과 answer quality 분석을 위한 보조 신호로 해석했습니다.
 
 ### 6.4 Evaluation 재현성
 
@@ -443,8 +478,9 @@ Report에는 다음 정보를 기록합니다.
 - Python version
 - seed policy
 - judge policy
+- judge model and rubric policy, when `--judge` is enabled
 
-현재 retrieval과 metric 계산은 random sampling을 사용하지 않습니다. Report에는 `seed: not used; deterministic retrieval/eval path`가 기록됩니다.
+현재 retrieval과 deterministic metric 계산은 random sampling을 사용하지 않습니다. Report에는 `seed: not used; deterministic retrieval/eval path`가 기록됩니다. `--judge`를 켠 경우 judge model과 `temperature=0.0`, 고정 rubric 사용 여부가 함께 기록됩니다.
 
 ### 6.5 Metric의 한계
 
@@ -454,6 +490,7 @@ Report에는 다음 정보를 기록합니다.
 | `citation_hit_rate` | citation이 답변의 모든 문장을 뒷받침하는지는 판단하지 못합니다. |
 | `refusal_accuracy` | refusal 질문 수와 품질에 의존합니다. |
 | `faithfulness` | deterministic proxy라 semantic correctness를 완전히 판단하지 못합니다. |
+| `judge_score` | judge model bias, prompt 민감도, 동일 계열 모델 사용에 따른 self-preference 가능성이 있습니다. |
 
 Gold Set 자체도 한 사람이 직접 작성했기 때문에 질문 표현이 문서 표현에 가까워질 수 있습니다. 또한 expected source는 URL 단위라 paragraph-level grounding까지 검증하지는 않습니다.
 
@@ -570,7 +607,7 @@ Streaming은 필수 요구는 아니지만 사용자 체감 latency를 낮추고
 | High | answer context selection과 citation selection 분리 | 답변용 넓은 문맥과 citation용 좁은 근거를 따로 최적화 |
 | Medium | Korean tokenizer 기반 refusal guard 또는 query rewrite | keyword overlap guard의 paraphrase 취약성 완화 |
 | Medium | paragraph-level citation metric | URL 단위보다 엄격한 grounding 평가 |
-| Medium | 고정 rubric 기반 LLM-as-a-judge 보조 metric | deterministic metric이 놓치는 semantic correctness와 helpfulness 평가 |
+| Medium | LLM-as-a-judge human calibration set 확대 | judge prompt의 human alignment와 일관성 검증 강화 |
 | Medium | CI에서 unit test와 mock/local eval regression check 실행 | 비용 없이 기본 회귀 방지 |
 | Low | scheduled/manual workflow로 Elice provider eval 실행 | 외부 API 비용과 flaky risk를 관리하면서 실제 provider 품질 추적 |
 | Low | pgvector, ChromaDB, managed vector DB adapter 추가 | 대규모 검색, filtering, update 운영성 확보 |
