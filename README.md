@@ -12,7 +12,7 @@ Elice AI Cloud 공식 문서 corpus를 기반으로 구축한 citation 기반 RA
 
 Corpus는 Elice AI Cloud 공식 문서를 사용했습니다. 공개 오픈소스 문서나 위키 문서도 선택하는것도 고려했지만 이번 과제가 Elice AI Cloud 환경에서 LLM API, 인스턴스, 크레딧, 모델 호출을 직접 다루는 과제였기 때문에 과제 맥락과 가장 가깝고 평가자가 결과를 검증하기 쉬운 세팅이라고 판단했습니다.
 
-Repository: [skytin1004/minseok-song-elice-2606](https://github.com/skytin1004/minseok-song-elice-2606)
+Repository: [skytin1004/elice-ai-cloud-rag-qa](https://github.com/skytin1004/elice-ai-cloud-rag-qa)
 
 ## 목차
 
