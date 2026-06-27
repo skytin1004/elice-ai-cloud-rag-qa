@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+*.egg-info/
+
+data/raw/
+data/processed/
+data/index/
+eval/reports/*.json
+
+# Local-only notes and confidential assignment materials.
+thoughts/
