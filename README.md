@@ -254,7 +254,7 @@ Text Embedding 3 Small을 선택한 이유:
 - local deterministic embedding보다 semantic retrieval 품질을 기대할 수 있습니다.
 - Elice AI Cloud를 chat뿐 아니라 embedding에도 실제로 사용해 볼 수 있습니다.
 
-초기 개발에서는 Elice credit이 준비되기 전 Azure OpenAI chat과 local deterministic embedding으로 먼저 end-to-end loop를 검증했습니다. 최종 제출 기준에서는 Elice chat과 Elice embedding으로 전환했습니다. 이 전환은 provider abstraction 덕분에 RAG core logic을 바꾸지 않고 환경변수와 index 재생성만으로 처리할 수 있었습니다.
+초기 개발에서는 Elice credit이 준비되기 전 Azure OpenAI chat과 local deterministic embedding으로 먼저 end-to-end loop를 검증했습니다. 최종 제출 기준에서는 Elice chat과 Elice embedding으로 전환했습니다.
 
 ### 4.2 기술 스택 선정
 
