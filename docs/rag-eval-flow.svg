@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="620" viewBox="0 0 1120 620" role="img" aria-labelledby="title desc">
+  <title id="title">Elice Citation RAG QA high-level flow</title>
+  <desc id="desc">High-level project flow from document indexing to query answering, evaluation, and improvement experiment.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 27px Arial, "Noto Sans KR", sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 13px Arial, "Noto Sans KR", sans-serif; fill: #64748b; }
+      .lane { fill: #ffffff; stroke: #d7dee8; stroke-width: 1.2; }
+      .lane-a { fill: #eef2ff; }
+      .lane-b { fill: #ecfdf5; }
+      .lane-c { fill: #fff7ed; }
+      .lane-title { font: 700 18px Arial, "Noto Sans KR", sans-serif; fill: #0f172a; }
+      .card { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
+      .card-a { stroke: #6366f1; }
+      .card-b { stroke: #059669; }
+      .card-c { stroke: #ea580c; }
+      .label { font: 700 14px Arial, "Noto Sans KR", sans-serif; fill: #111827; }
+      .small { font: 400 11.5px Arial, "Noto Sans KR", sans-serif; fill: #475569; }
+      .arrow { stroke: #334155; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .soft { stroke: #64748b; stroke-width: 1.2; stroke-dasharray: 5 5; fill: none; marker-end: url(#arrow); }
+      .chip { fill: #0f172a; }
+      .chip-text { font: 700 11px Arial, "Noto Sans KR", sans-serif; fill: #ffffff; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1120" height="620"/>
+
+  <text class="title" x="48" y="48">Citation RAG QA Project Flow</text>
+  <text class="subtitle" x="50" y="73">문서 기반 답변 생성, 자체 평가, 개선 실험을 하나의 반복 가능한 품질 관리 흐름으로 구성했습니다.</text>
+
+  <rect class="lane lane-a" x="40" y="105" width="1040" height="145" rx="14"/>
+  <text class="lane-title" x="62" y="136">Part A. Build the RAG Service</text>
+
+  <rect class="card card-a" x="70" y="162" width="135" height="56" rx="8"/>
+  <text class="label" x="98" y="186">Docs</text>
+  <text class="small" x="91" y="205">20 Elice pages</text>
+
+  <rect class="card card-a" x="242" y="162" width="135" height="56" rx="8"/>
+  <text class="label" x="279" y="186">Ingest</text>
+  <text class="small" x="264" y="205">download / clean</text>
+
+  <rect class="card card-a" x="414" y="162" width="135" height="56" rx="8"/>
+  <text class="label" x="447" y="186">Chunk</text>
+  <text class="small" x="430" y="205">heading-aware</text>
+
+  <rect class="card card-a" x="586" y="162" width="135" height="56" rx="8"/>
+  <text class="label" x="619" y="186">Embed</text>
+  <text class="small" x="608" y="205">Elice embedding</text>
+
+  <rect class="card card-a" x="758" y="162" width="135" height="56" rx="8"/>
+  <text class="label" x="790" y="186">Index</text>
+  <text class="small" x="779" y="205">JSON vectors</text>
+
+  <rect class="card card-a" x="930" y="162" width="120" height="56" rx="8"/>
+  <text class="label" x="966" y="186">API</text>
+  <text class="small" x="948" y="205">/query + stream</text>
+
+  <path class="arrow" d="M205 190 H242"/>
+  <path class="arrow" d="M377 190 H414"/>
+  <path class="arrow" d="M549 190 H586"/>
+  <path class="arrow" d="M721 190 H758"/>
+  <path class="arrow" d="M893 190 H930"/>
+
+  <rect class="lane lane-b" x="40" y="285" width="500" height="205" rx="14"/>
+  <text class="lane-title" x="62" y="316">Part B. Measure Quality</text>
+
+  <rect class="card card-b" x="72" y="350" width="125" height="56" rx="8"/>
+  <text class="label" x="103" y="374">Gold Set</text>
+  <text class="small" x="98" y="393">20 questions</text>
+
+  <rect class="card card-b" x="238" y="350" width="125" height="56" rx="8"/>
+  <text class="label" x="269" y="374">Run Eval</text>
+  <text class="small" x="262" y="393">single command</text>
+
+  <rect class="card card-b" x="404" y="350" width="105" height="56" rx="8"/>
+  <text class="label" x="429" y="374">Report</text>
+  <text class="small" x="424" y="393">MD + JSON</text>
+
+  <rect class="card card-b" x="126" y="430" width="325" height="36" rx="8"/>
+  <text class="small" x="151" y="453">retrieval recall / citation hit / refusal / faithfulness</text>
+
+  <path class="arrow" d="M197 378 H238"/>
+  <path class="arrow" d="M363 378 H404"/>
+  <path class="soft" d="M300 350 C420 280, 620 255, 930 218"/>
+
+  <rect class="lane lane-c" x="580" y="285" width="500" height="205" rx="14"/>
+  <text class="lane-title" x="602" y="316">Part C. Improve and Explain</text>
+
+  <rect class="card card-c" x="620" y="350" width="125" height="56" rx="8"/>
+  <text class="label" x="654" y="374">Baseline</text>
+  <text class="small" x="644" y="393">fixed chunks</text>
+
+  <rect class="card card-c" x="788" y="350" width="125" height="56" rx="8"/>
+  <text class="label" x="821" y="374">Improved</text>
+  <text class="small" x="807" y="393">heading + threshold</text>
+
+  <rect class="card card-c" x="956" y="350" width="88" height="56" rx="8"/>
+  <text class="label" x="978" y="374">Compare</text>
+  <text class="small" x="970" y="393">before / after</text>
+
+  <rect class="card card-c" x="650" y="430" width="360" height="36" rx="8"/>
+  <text class="small" x="675" y="453">hypothesis / result / analysis / next steps</text>
+
+  <path class="arrow" d="M745 378 H788"/>
+  <path class="arrow" d="M913 378 H956"/>
+  <path class="soft" d="M682 350 C560 300, 460 285, 300 350"/>
+
+  <rect class="chip" x="50" y="540" width="132" height="25" rx="12.5"/>
+  <text class="chip-text" x="68" y="557">Elice GPT-5 mini</text>
+  <rect class="chip" x="198" y="540" width="198" height="25" rx="12.5"/>
+  <text class="chip-text" x="216" y="557">Text Embedding 3 Small</text>
+  <rect class="chip" x="412" y="540" width="162" height="25" rx="12.5"/>
+  <text class="chip-text" x="430" y="557">Hallucination Guard</text>
+  <rect class="chip" x="590" y="540" width="122" height="25" rx="12.5"/>
+  <text class="chip-text" x="608" y="557">SSE Streaming</text>
+  <rect class="chip" x="728" y="540" width="166" height="25" rx="12.5"/>
+  <text class="chip-text" x="746" y="557">Deterministic Eval</text>
+</svg>
