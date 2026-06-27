@@ -10,7 +10,7 @@ RAG 서비스는 통제된 데모 환경에서는 쉽게 정상 동작해 보일
 2. 검색된 문맥에 충분한 근거가 없을 경우, 억지로 답변하지 않고 정보 불충분 상태를 반환해야 한다.
 3. 위 동작이 주관적인 판단이 아니라 Gold Set 기반 evaluation harness로 반복 측정 가능해야 한다.
 
-Corpus는 Elice AI Cloud 공식 문서를 사용했습니다. 공개 오픈소스 문서나 위키 문서도 선택할 수 있었지만, 이번 과제가 Elice AI Cloud 환경에서 LLM API, 인스턴스, 크레딧, 모델 호출을 직접 다루는 과제였기 때문에 과제 맥락과 가장 가깝고 평가자가 결과를 검증하기 쉬운 세팅이라고 판단했습니다.
+Corpus는 Elice AI Cloud 공식 문서를 사용했습니다. 공개 오픈소스 문서나 위키 문서도 후보로 고려했지만, 이 프로젝트는 AI Cloud 환경에서 모델 호출, 인스턴스, 크레딧, API 키, 엔드포인트 같은 실제 운영 흐름을 문서 기반으로 질의응답하는 것을 목표로 했습니다. 따라서 서비스 도메인과 가장 가까운 공식 문서를 corpus로 선택하는 것이 citation 검증, 재현성, hallucination 관찰 측면에서 더 적합하다고 판단했습니다.
 
 Repository: [skytin1004/elice-ai-cloud-rag-qa](https://github.com/skytin1004/elice-ai-cloud-rag-qa)
 
