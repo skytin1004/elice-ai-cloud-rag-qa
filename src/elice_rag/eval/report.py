@@ -19,6 +19,8 @@ def write_reports(
     settings: Settings,
     out_path: str | Path,
     label: str,
+    judge_policy: str = "not used; deterministic metric implementation",
+    judge_model: str | None = None,
 ) -> None:
     markdown_path = Path(out_path)
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
@@ -36,6 +38,7 @@ def write_reports(
             "embedding_model": embedding_client.model_name,
             "azure_chat_deployment": settings.azure_openai_chat_deployment_name,
             "elice_chat_model": settings.elice_chat_model,
+            "judge_model": judge_model,
         },
         "retrieval": {
             "top_k": settings.rag_top_k,
@@ -46,7 +49,7 @@ def write_reports(
             "git_branch": _git("branch", "--show-current"),
             "python_version": platform.python_version(),
             "seed": "not used; deterministic retrieval/eval path",
-            "judge": "not used; deterministic metric implementation",
+            "judge": judge_policy,
         },
         "summary": summary,
         "examples": [score.__dict__ for score in scores],
@@ -87,25 +90,63 @@ def _render_markdown(payload: dict) -> str:
         f"| Citation hit rate | {summary['citation_hit_rate']:.4f} |",
         f"| Refusal accuracy | {summary['refusal_accuracy']:.4f} |",
         f"| Faithfulness | {summary['faithfulness']:.4f} |",
-        "",
-        "## Examples",
-        "",
-        "| ID | Status | Retrieval | Citation | Refusal | Faithfulness |",
-        "|---|---|---:|---:|---:|---:|",
     ]
+    if "judge_score" in summary:
+        lines.extend(
+            [
+                f"| Judge groundedness | {summary['judge_groundedness']:.4f} |",
+                f"| Judge correctness | {summary['judge_correctness']:.4f} |",
+                f"| Judge score | {summary['judge_score']:.4f} |",
+                f"| Judge pass rate | {summary['judge_pass_rate']:.4f} |",
+            ]
+        )
+    lines.extend(["", "## Examples", ""])
+    has_judge = any(example.get("judge_score") is not None for example in payload["examples"])
+    if has_judge:
+        lines.extend(
+            [
+                "| ID | Status | Retrieval | Citation | Refusal | Faithfulness | Judge | Judge pass |",
+                "|---|---|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "| ID | Status | Retrieval | Citation | Refusal | Faithfulness |",
+                "|---|---|---:|---:|---:|---:|",
+            ]
+        )
     for example in payload["examples"]:
         refusal = example["refusal_correct"]
         refusal_text = "" if refusal is None else str(refusal)
-        lines.append(
-            "| {id} | {status} | {retrieval} | {citation} | {refusal} | {faithfulness:.2f} |".format(
-                id=example["id"],
-                status=example["response_status"],
-                retrieval=str(example["retrieval_hit"]),
-                citation=str(example["citation_hit"]),
-                refusal=refusal_text,
-                faithfulness=example["faithfulness"],
+        if has_judge:
+            judge_score = example["judge_score"]
+            judge_text = "" if judge_score is None else f"{judge_score:.2f}"
+            judge_pass = example["judge_pass"]
+            judge_pass_text = "" if judge_pass is None else str(judge_pass)
+            lines.append(
+                "| {id} | {status} | {retrieval} | {citation} | {refusal} | {faithfulness:.2f} | {judge} | {judge_pass} |".format(
+                    id=example["id"],
+                    status=example["response_status"],
+                    retrieval=str(example["retrieval_hit"]),
+                    citation=str(example["citation_hit"]),
+                    refusal=refusal_text,
+                    faithfulness=example["faithfulness"],
+                    judge=judge_text,
+                    judge_pass=judge_pass_text,
+                )
             )
-        )
+        else:
+            lines.append(
+                "| {id} | {status} | {retrieval} | {citation} | {refusal} | {faithfulness:.2f} |".format(
+                    id=example["id"],
+                    status=example["response_status"],
+                    retrieval=str(example["retrieval_hit"]),
+                    citation=str(example["citation_hit"]),
+                    refusal=refusal_text,
+                    faithfulness=example["faithfulness"],
+                )
+            )
     lines.append("")
     return "\n".join(lines)
 

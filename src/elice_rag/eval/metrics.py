@@ -17,6 +17,11 @@ class ExampleScore:
     refusal_correct: bool | None
     faithfulness: float
     answer: str
+    judge_groundedness: float | None = None
+    judge_correctness: float | None = None
+    judge_score: float | None = None
+    judge_pass: bool | None = None
+    judge_rationale: str | None = None
 
 
 def source_matches(actual_url: str, expected_url: str) -> bool:
@@ -77,13 +82,28 @@ def score_example(example: GoldExample, response: QueryResponse) -> ExampleScore
 def summarize(scores: list[ExampleScore]) -> dict[str, float]:
     answerable = [score for score in scores if score.refusal_correct is None]
     refusal = [score for score in scores if score.refusal_correct is not None]
-    return {
+    summary = {
         "total": float(len(scores)),
         "retrieval_recall_at_k": _mean([score.retrieval_hit for score in answerable]),
         "citation_hit_rate": _mean([score.citation_hit for score in answerable]),
         "refusal_accuracy": _mean([score.refusal_correct for score in refusal]),
         "faithfulness": _mean([score.faithfulness for score in scores]),
     }
+    judged = [score for score in scores if score.judge_score is not None]
+    if judged:
+        summary.update(
+            {
+                "judge_groundedness": _mean(
+                    [score.judge_groundedness for score in judged]
+                ),
+                "judge_correctness": _mean(
+                    [score.judge_correctness for score in judged]
+                ),
+                "judge_score": _mean([score.judge_score for score in judged]),
+                "judge_pass_rate": _mean([score.judge_pass for score in judged]),
+            }
+        )
+    return summary
 
 
 def _mean(values: list[bool | float | None]) -> float:
@@ -91,4 +111,3 @@ def _mean(values: list[bool | float | None]) -> float:
     if not clean:
         return 0.0
     return round(sum(clean) / len(clean), 4)
-
