@@ -525,11 +525,11 @@ Part C는 "점수가 가장 잘 나오는 조합을 찾았다"가 아니라, 같
 - 같은 20문항에 대한 반복 tuning은 Gold Set overfitting 위험이 있으므로, metric 상승은 보수적으로 해석합니다.
 - 최종 설정은 단일 metric이 아니라 retrieval, citation, refusal, judge 진단, 구현 복잡도를 함께 보고 결정합니다.
 
-### 7.2 Primary Hypothesis
+### 7.2 Experiment 1. Heading-aware 가설
 
 > Heading-aware chunking과 score threshold를 적용하면 문서 구조가 보존되고 낮은 근거성의 질문이 generation 전에 차단되므로 `citation_hit_rate`와 `refusal_accuracy`가 상승할 것이다.
 
-### 7.3 Primary Before / After Result
+### 7.3 Experiment 1 Result
 
 Baseline:
 
@@ -553,7 +553,30 @@ Elice provider 기준 before/after 결과:
 | refusal_accuracy | 1.0000 | 1.0000 | +0.0000 |
 | faithfulness | 1.0000 | 0.9250 | -0.0750 |
 
-### 7.4 Elice 기반 반복 실험
+첫 번째 가설은 지지되지 않았습니다. heading-aware chunking은 문서 구조를 보존하지만, 이 corpus와 Elice embedding 조합에서는 fixed-size chunk가 가진 넓은 주변 문맥을 잃으면서 retrieval과 citation metric이 하락했습니다.
+
+### 7.4 Experiment 2. Broad-context 회복 실험
+
+Experiment 1의 실패 원인을 "heading 단위로 문맥이 너무 세밀하게 분리된 것"으로 보고, 두 번째 가설을 세웠습니다.
+
+> 이 corpus에서는 문서 구조 보존보다 넓은 주변 문맥 보존이 source/citation hit에 더 중요하다. 따라서 broad-context fixed-size chunking으로 되돌리면 heading-aware 실패 설정보다 `retrieval_recall_at_k`, `citation_hit_rate`, `faithfulness`가 회복될 것이다.
+
+Recovery 비교는 실패한 heading-aware 설정을 before로 두고, broad-context fixed-size 설정을 after로 둔 결과입니다.
+
+| Metric | Failed heading/top-5 | Broad fixed/top-3 | Delta |
+|---|---:|---:|---:|
+| retrieval_recall_at_k | 0.9444 | 1.0000 | +0.0556 |
+| citation_hit_rate | 0.8889 | 1.0000 | +0.1111 |
+| refusal_accuracy | 1.0000 | 1.0000 | +0.0000 |
+| faithfulness | 0.9250 | 1.0000 | +0.0750 |
+
+이 결과는 실제 Elice run에서 확인한 회복입니다. 다만 이것을 "실패한 실험을 숨기고 baseline을 바꿨다"로 해석하지 않기 위해, README에는 Experiment 1의 실패 결과도 함께 남겼습니다. 해석은 다음과 같습니다.
+
+- fixed-size chunking은 구조적 citation에는 덜 예쁘지만 넓은 local context를 보존합니다.
+- 현재 Gold Set과 Elice Text Embedding 3 Small 조합에서는 넓은 context가 expected source/citation hit에 더 유리했습니다.
+- 따라서 다음 구조 개선은 fixed-size context를 답변 생성에 활용하되, citation evidence는 더 좁게 고르는 방향이어야 합니다.
+
+### 7.5 Additional Elice Sweep
 
 Primary 실험만으로는 어떤 설정이 왜 실패했는지 충분히 설명하기 어렵기 때문에, 같은 Elice Serverless 환경에서 top-k, threshold, rerank 조건을 바꿔 추가 실험을 진행했습니다. 모든 실험은 Elice GPT-5 mini chat model과 Elice Text Embedding 3 Small을 사용했고, 같은 Gold Set과 같은 Eval Harness로 측정했습니다.
 
@@ -575,20 +598,45 @@ Elice 반복 실험 결과:
 | heading-top8-relaxed | top-k를 8로 늘리고 threshold를 완화하면 heading chunk가 놓친 expected source를 회복할 것이다. | heading-top5와 동일하게 faithfulness 0.9250으로 정체 | 단순히 더 많은 chunk를 넣는 것으로는 citation hit가 회복되지 않았다. 검색 후보 수보다 후보의 순서와 citation 선택 방식이 더 큰 병목으로 보인다. | top-k 확대보다 reranker와 source diversity 제어를 우선한다. |
 | heading-top5-strict | threshold를 더 강하게 적용하면 약한 근거가 제거되어 citation precision이 상승할 것이다. | faithfulness 0.9250으로 baseline 대비 하락, refusal_accuracy는 1.0000 유지 | 이 Gold Set에서는 stricter threshold가 hallucination guard를 추가로 개선하지 못했다. answerable 질문에서 필요한 근거를 버릴 위험이 있어 global threshold만 강화하는 방식은 적합하지 않다. | query type별 threshold 또는 confidence calibration을 별도로 설계한다. |
 | heading-top8-keyword-rerank | 넓게 검색한 뒤 keyword overlap으로 재정렬하면 citation ordering이 개선될 것이다. | faithfulness 0.9250으로 heading-top8과 동일 | 단순 keyword overlap은 Elice embedding이 이미 잡은 semantic ranking을 유의미하게 보완하지 못했다. 한국어 paraphrase와 도메인 용어 변형까지 다루려면 더 강한 ranking signal이 필요하다. | BM25, heading proximity, source diversity를 결합한 lightweight reranker를 실험한다. |
-| LLM-as-a-judge 보조 진단 | deterministic metric이 놓치는 semantic correctness와 acceptance criteria coverage를 보조적으로 확인한다. | judge_score 0.7625, judge_pass_rate 0.6000 | source/citation hit가 맞아도 기대 기준 일부를 누락한 답변이 있었다. deterministic metric은 regression signal로 유용하지만 답변 품질 전체를 대표하지는 않는다. | human calibration set을 추가하고 judge rubric을 고정해 judge 신뢰성을 더 검증한다. |
 
-### 7.5 Analysis
+### 7.6 Experiment 3. Judge correctness 진단
+
+Deterministic metric은 broad-context fixed-size 설정에서 1.0000까지 회복됐지만, 이것만으로 답변 품질이 완전히 해결됐다고 보지는 않았습니다. URL 단위 source/citation hit가 맞아도 답변이 acceptance criteria를 충분히 포함하지 못할 수 있기 때문입니다.
+
+그래서 LLM-as-a-judge를 보조 진단으로 실행했습니다.
+
+| Metric | Score |
+|---|---:|
+| judge_groundedness | 0.8500 |
+| judge_correctness | 0.6750 |
+| judge_score | 0.7625 |
+| judge_pass_rate | 0.6000 |
+
+이 결과는 다음 문제를 보여줍니다.
+
+- deterministic metric은 retrieval/citation/refusal 회귀를 잡는 데 유용합니다.
+- 하지만 answer completeness와 acceptance criteria coverage는 충분히 엄격하게 보지 못합니다.
+- 다음 실험은 chunking보다 answer construction 개선이 되어야 합니다.
+
+다음 가설은 다음과 같이 잡았습니다.
+
+> retrieved context에서 답변에 반드시 포함해야 할 항목을 checklist 형태로 먼저 추출한 뒤 답변을 생성하면 `judge_correctness`와 `judge_pass_rate`가 상승할 것이다.
+
+이번 제출에서는 비용과 범위상 이 answer construction 개선은 Next Step으로 남겼습니다.
+
+### 7.7 Analysis
 
 Primary 가설은 Elice provider 기준에서는 지지되지 않았습니다. Elice Text Embedding 3 Small에서는 fixed-size chunking baseline이 이미 top-3에서 expected source를 잘 검색했습니다. 반면 heading-aware chunking은 문서를 더 세밀하게 나누면서 일부 질문에서 expected source와 citation selection이 어긋났습니다.
 
-추가 Elice sweep도 같은 방향의 신호를 줬습니다. heading-aware 계열 실험은 top-k를 늘리거나 threshold를 조정하거나 keyword rerank를 추가해도 baseline을 넘지 못했습니다. 즉 병목은 단순 retrieval 후보 개수나 score threshold가 아니라, chunk granularity와 citation 후보 선택 방식에 더 가깝다고 해석했습니다.
+추가 Elice sweep도 같은 방향의 신호를 줬습니다. heading-aware 계열 실험은 top-k를 늘리거나 threshold를 조정하거나 keyword rerank를 추가해도 baseline을 넘지 못했습니다. 반대로 broad-context fixed-size 설정으로 돌아오면 deterministic metric은 1.0000까지 회복됐습니다. 즉 병목은 단순 retrieval 후보 개수나 score threshold가 아니라, chunk granularity와 citation 후보 선택 방식에 더 가깝다고 해석했습니다.
 
 이 결과는 chunking 전략이 항상 한 방향으로 좋아지는 것이 아니라, embedding model의 품질과 corpus 구조에 따라 달라진다는 점을 보여줍니다. 특히 답변 생성에는 넓은 문맥이 유리할 수 있고, citation에는 더 좁고 정확한 근거가 유리할 수 있습니다. 따라서 다음 개선은 "chunk를 더 많이 넣기"나 "threshold를 더 강하게 조정하기"보다, answer context selection과 citation selection을 분리하는 방향이 더 적절하다고 판단했습니다.
 
 LLM-as-a-judge 결과도 같은 방향의 시사점을 줍니다. deterministic metric은 expected source와 citation hit를 잘 확인하지만, 답변이 acceptance criteria를 모두 충족했는지는 더 엄격하게 보지 못합니다. Judge는 일부 답변에서 groundedness는 높게 보면서도 correctness를 낮게 평가했습니다. 즉 다음 개선은 단순히 더 많은 chunk를 넣는 것이 아니라, 검색된 문맥에서 어떤 정보를 답변에 반드시 포함해야 하는지 answer construction을 더 명확히 하는 방향이어야 합니다.
 
-### 7.6 Next Steps
+### 7.8 Next Steps
 
+- retrieved context에서 answer checklist를 먼저 만들고, 최종 답변이 checklist를 모두 반영했는지 검증합니다.
 - keyword reranker를 BM25, heading proximity, source diversity를 반영하는 lightweight reranker로 확장합니다.
 - answer context selection과 citation selection을 분리합니다.
 - acceptance criteria coverage를 점검하는 answer checklist 또는 post-generation verifier를 실험합니다.

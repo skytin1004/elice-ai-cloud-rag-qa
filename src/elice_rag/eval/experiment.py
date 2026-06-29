@@ -228,6 +228,10 @@ def _render_comparison(results: list[dict]) -> str:
             )
         )
 
+    recovery_lines = _render_recovery_comparison(results)
+    if recovery_lines:
+        lines.extend(["", *recovery_lines])
+
     lines.extend(["", "## Per-Experiment Notes", ""])
     for result in results:
         config = result["config"]
@@ -279,6 +283,42 @@ def _render_comparison(results: list[dict]) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _render_recovery_comparison(results: list[dict]) -> list[str]:
+    by_label = {result["config"]["label"]: result for result in results}
+    failed = by_label.get("heading-top5-threshold")
+    recovered = by_label.get("baseline-fixed-top3")
+    if failed is None or recovered is None:
+        return []
+
+    failed_summary = failed["summary"]
+    recovered_summary = recovered["summary"]
+    metrics = [
+        ("retrieval_recall_at_k", "Retrieval recall@k"),
+        ("citation_hit_rate", "Citation hit rate"),
+        ("refusal_accuracy", "Refusal accuracy"),
+        ("faithfulness", "Faithfulness"),
+    ]
+    lines = [
+        "## Recovery Comparison",
+        "",
+        "The initial heading-aware hypothesis failed against the fixed-size control. The recovery comparison treats that failed heading-aware setting as the new before state, then checks whether returning to a broad-context fixed chunking strategy restores the measured quality.",
+        "",
+        "| Metric | Failed heading/top-5 | Broad fixed/top-3 | Delta |",
+        "|---|---:|---:|---:|",
+    ]
+    for key, label in metrics:
+        before = failed_summary.get(key, 0.0)
+        after = recovered_summary.get(key, 0.0)
+        lines.append(f"| {label} | {before:.4f} | {after:.4f} | {after - before:+.4f} |")
+    lines.extend(
+        [
+            "",
+            "This is not a hidden replacement of the failed experiment. It is the follow-up design decision: preserve broad local context for answer generation, then handle stricter evidence selection as a separate next step.",
+        ]
+    )
+    return lines
 
 
 def _experiment_analyses(results: list[dict]) -> dict[str, str]:

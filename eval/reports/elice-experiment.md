@@ -12,6 +12,19 @@ The same Gold Set and metric implementation were used for every run. The goal is
 | heading-top5-strict | heading | 5 | 0.16 | none | 0.9444 | 0.8889 | 1.0000 | 0.9250 | -0.0750 |
 | heading-top8-keyword-rerank | heading | 8 | 0.04 | keyword | 0.9444 | 0.8889 | 1.0000 | 0.9250 | -0.0750 |
 
+## Recovery Comparison
+
+The initial heading-aware hypothesis failed against the fixed-size control. The recovery comparison treats that failed heading-aware setting as the new before state, then checks whether returning to a broad-context fixed chunking strategy restores the measured quality.
+
+| Metric | Failed heading/top-5 | Broad fixed/top-3 | Delta |
+|---|---:|---:|---:|
+| Retrieval recall@k | 0.9444 | 1.0000 | +0.0556 |
+| Citation hit rate | 0.8889 | 1.0000 | +0.1111 |
+| Refusal accuracy | 1.0000 | 1.0000 | +0.0000 |
+| Faithfulness | 0.9250 | 1.0000 | +0.0750 |
+
+This is not a hidden replacement of the failed experiment. It is the follow-up design decision: preserve broad local context for answer generation, then handle stricter evidence selection as a separate next step.
+
 ## Per-Experiment Notes
 
 ### baseline-fixed-top3
