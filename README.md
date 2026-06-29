@@ -500,9 +500,9 @@ Report에는 다음 정보를 기록했습니다.
 
 Gold Set 자체도 한 사람이 직접 작성했기 때문에 질문 표현이 문서 표현에 가까워질 수 있습니다. 또한 expected source는 URL 단위라 paragraph-level grounding까지 검증하지는 않습니다.
 
-### 6.6 CI 연동 시 설계
+### 6.6 CI 연동 설계
 
-향후 CI에서는 모든 pull request마다 `python -m pytest`와 mock/local eval을 실행합니다. CI는 Markdown report를 artifact로 남기고, 다음과 같은 regression에서 실패하도록 구성할 수 있습니다.
+현재 저장소에는 GitHub Actions workflow를 포함하지 않았습니다. 다만 regression 방지 관점에서 CI에 연동한다면, 모든 pull request마다 `python -m pytest`와 mock/local eval을 실행하도록 구성할 수 있습니다. CI는 Markdown report를 artifact로 남기고, 다음과 같은 regression에서 실패하도록 설정합니다.
 
 - `refusal_accuracy < 1.0`
 - `retrieval_recall_at_k < 0.80`
