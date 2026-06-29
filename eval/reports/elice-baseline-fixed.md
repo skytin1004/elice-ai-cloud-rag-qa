@@ -2,14 +2,15 @@
 
 ## Provider
 
-- Generated at: `2026-06-27T08:14:17.313762+00:00`
+- Generated at: `2026-06-29T00:52:10.236231+00:00`
 - LLM provider: `elice`
 - LLM model/deployment: `openai/gpt-5-mini`
 - Embedding provider: `elice`
 - Embedding model: `openai/text-embedding-3-small`
 - Top-k: `3`
 - Min score: `0.0`
-- Git commit: `5a968a5`
+- Rerank mode: `none`
+- Git commit: `11b0223`
 - Git branch: `main`
 - Python: `3.12.6`
 - Seed policy: `not used; deterministic retrieval/eval path`

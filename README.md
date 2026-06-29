@@ -208,10 +208,18 @@ LLM-as-a-judge 보조 평가 포함:
 python -m elice_rag.eval.runner --gold eval/gold_set.jsonl --out eval/reports/elice-final-judge.md --label elice-final-judge --judge
 ```
 
-Part C before/after 실험:
+Part C Elice 반복 실험:
 
 ```powershell
-python -m elice_rag.eval.experiment --out eval/reports/elice-experiment.md --baseline-out eval/reports/elice-baseline-fixed.md --improved-out eval/reports/elice-improved-heading.md
+python -m elice_rag.eval.experiment --out eval/reports/elice-experiment.md --baseline-out eval/reports/elice-baseline-fixed.md --improved-out eval/reports/elice-improved-heading.md --report-prefix elice-
+```
+
+비용 없이 여러 실험 설정을 반복 확인할 때는 mock/local 조합으로 같은 실험 로그를 생성할 수 있습니다.
+
+```powershell
+$env:LLM_PROVIDER="mock"
+$env:EMBEDDING_PROVIDER="local"
+python -m elice_rag.eval.experiment --out eval/reports/experiment.md --baseline-out eval/reports/baseline-fixed.md --improved-out eval/reports/improved-heading.md
 ```
 
 Unit test:
@@ -517,11 +525,11 @@ Part C는 "점수가 가장 잘 나오는 조합을 찾았다"가 아니라, 같
 - 같은 20문항에 대한 반복 tuning은 Gold Set overfitting 위험이 있으므로, metric 상승은 보수적으로 해석합니다.
 - 최종 설정은 단일 metric이 아니라 retrieval, citation, refusal, judge 진단, 구현 복잡도를 함께 보고 결정합니다.
 
-### 7.2 Hypothesis
+### 7.2 Primary Hypothesis
 
 > Heading-aware chunking과 score threshold를 적용하면 문서 구조가 보존되고 낮은 근거성의 질문이 generation 전에 차단되므로 `citation_hit_rate`와 `refusal_accuracy`가 상승할 것이다.
 
-### 7.3 Before / After Result
+### 7.3 Primary Before / After Result
 
 Baseline:
 
@@ -545,34 +553,43 @@ Elice provider 기준 before/after 결과:
 | refusal_accuracy | 1.0000 | 1.0000 | +0.0000 |
 | faithfulness | 1.0000 | 0.9250 | -0.0750 |
 
-Mock/local 기준 before/after 결과:
+### 7.4 Elice 기반 반복 실험
 
-| Metric | Baseline fixed/top-3 | Improved heading/top-5 | Delta |
-|---|---:|---:|---:|
-| retrieval_recall_at_k | 0.8333 | 0.8889 | +0.0556 |
-| citation_hit_rate | 0.8333 | 0.7778 | -0.0555 |
-| refusal_accuracy | 1.0000 | 1.0000 | +0.0000 |
-| faithfulness | 0.9000 | 0.8500 | -0.0500 |
+Primary 실험만으로는 어떤 설정이 왜 실패했는지 충분히 설명하기 어렵기 때문에, 같은 Elice Serverless 환경에서 top-k, threshold, rerank 조건을 바꿔 추가 실험을 진행했습니다. 모든 실험은 Elice GPT-5 mini chat model과 Elice Text Embedding 3 Small을 사용했고, 같은 Gold Set과 같은 Eval Harness로 측정했습니다.
 
-### 7.4 Experiment Log
+Elice 반복 실험 결과:
 
-| Experiment | 목적 | Provider | 결과 | 설계 판단 |
+| Experiment | Strategy | top-k | min score | rerank | retrieval_recall_at_k | citation_hit_rate | refusal_accuracy | faithfulness |
+|---|---|---:|---:|---|---:|---:|---:|---:|
+| baseline-fixed-top3 | fixed | 3 | 0.00 | none | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| heading-top5-threshold | heading | 5 | 0.08 | none | 0.9444 | 0.8889 | 1.0000 | 0.9250 |
+| heading-top8-relaxed | heading | 8 | 0.04 | none | 0.9444 | 0.8889 | 1.0000 | 0.9250 |
+| heading-top5-strict | heading | 5 | 0.16 | none | 0.9444 | 0.8889 | 1.0000 | 0.9250 |
+| heading-top8-keyword-rerank | heading | 8 | 0.04 | keyword | 0.9444 | 0.8889 | 1.0000 | 0.9250 |
+
+실험별 Hypothesis / Result / Analysis / Next Steps:
+
+| Experiment | Hypothesis | Result | Analysis | Next Steps |
 |---|---|---|---|---|
-| Fixed-size baseline vs heading-aware chunking | 문서 구조 보존이 retrieval/citation 품질을 높이는지 확인 | Elice chat + Elice embedding | Elice 기준 heading-aware가 baseline보다 낮은 metric 기록 | heading-aware가 항상 우월하지 않으며, Elice embedding 기준으로는 넓은 fixed chunk가 source hit에 유리할 수 있음 |
-| 같은 실험의 mock/local 검증 | 비용 없이 반복 가능한 regression signal 확인 | mock chat + local deterministic embedding | retrieval은 소폭 상승했지만 citation과 faithfulness는 하락 | local fallback은 개발/CI용 signal이지 최종 품질 판단 기준은 아님 |
-| LLM-as-a-judge 보조 진단 | deterministic metric이 놓치는 semantic correctness 확인 | Elice GPT-5 mini judge | judge_score 0.7625, judge_pass_rate 0.6000 | source/citation hit가 맞아도 acceptance criteria 일부 누락이 있을 수 있어 answer quality 개선 여지가 있음 |
+| heading-top5-threshold | heading-aware chunking과 threshold를 적용하면 문서 구조가 보존되어 citation_hit_rate와 refusal_accuracy가 상승할 것이다. | faithfulness 1.0000 -> 0.9250, citation_hit_rate 1.0000 -> 0.8889 | 기대와 달리 하락했다. fixed chunk가 더 넓은 주변 문맥을 보존해 expected source를 안정적으로 포함했고, heading chunk는 일부 문맥을 더 잘게 나누며 citation 후보가 흔들린 것으로 해석했다. | answer context와 citation selection을 분리해, 답변에는 넓은 문맥을 쓰고 citation은 더 좁은 근거를 고르는 구조를 실험한다. |
+| heading-top8-relaxed | top-k를 8로 늘리고 threshold를 완화하면 heading chunk가 놓친 expected source를 회복할 것이다. | heading-top5와 동일하게 faithfulness 0.9250으로 정체 | 단순히 더 많은 chunk를 넣는 것으로는 citation hit가 회복되지 않았다. 검색 후보 수보다 후보의 순서와 citation 선택 방식이 더 큰 병목으로 보인다. | top-k 확대보다 reranker와 source diversity 제어를 우선한다. |
+| heading-top5-strict | threshold를 더 강하게 적용하면 약한 근거가 제거되어 citation precision이 상승할 것이다. | faithfulness 0.9250으로 baseline 대비 하락, refusal_accuracy는 1.0000 유지 | 이 Gold Set에서는 stricter threshold가 hallucination guard를 추가로 개선하지 못했다. answerable 질문에서 필요한 근거를 버릴 위험이 있어 global threshold만 강화하는 방식은 적합하지 않다. | query type별 threshold 또는 confidence calibration을 별도로 설계한다. |
+| heading-top8-keyword-rerank | 넓게 검색한 뒤 keyword overlap으로 재정렬하면 citation ordering이 개선될 것이다. | faithfulness 0.9250으로 heading-top8과 동일 | 단순 keyword overlap은 Elice embedding이 이미 잡은 semantic ranking을 유의미하게 보완하지 못했다. 한국어 paraphrase와 도메인 용어 변형까지 다루려면 더 강한 ranking signal이 필요하다. | BM25, heading proximity, source diversity를 결합한 lightweight reranker를 실험한다. |
+| LLM-as-a-judge 보조 진단 | deterministic metric이 놓치는 semantic correctness와 acceptance criteria coverage를 보조적으로 확인한다. | judge_score 0.7625, judge_pass_rate 0.6000 | source/citation hit가 맞아도 기대 기준 일부를 누락한 답변이 있었다. deterministic metric은 regression signal로 유용하지만 답변 품질 전체를 대표하지는 않는다. | human calibration set을 추가하고 judge rubric을 고정해 judge 신뢰성을 더 검증한다. |
 
 ### 7.5 Analysis
 
-가설은 Elice provider 기준에서는 지지되지 않았습니다. Elice Text Embedding 3 Small에서는 fixed-size chunking baseline이 이미 top-3에서 expected source를 잘 검색했습니다. 반면 heading-aware chunking은 문서를 더 세밀하게 나누면서 일부 질문에서 expected source와 citation selection이 어긋났습니다.
+Primary 가설은 Elice provider 기준에서는 지지되지 않았습니다. Elice Text Embedding 3 Small에서는 fixed-size chunking baseline이 이미 top-3에서 expected source를 잘 검색했습니다. 반면 heading-aware chunking은 문서를 더 세밀하게 나누면서 일부 질문에서 expected source와 citation selection이 어긋났습니다.
 
-이 결과는 chunking 전략이 항상 한 방향으로 좋아지는 것이 아니라, embedding model의 품질과 corpus 구조에 따라 달라진다는 점을 보여줍니다. 특히 답변 생성에는 넓은 문맥이 유리할 수 있고, citation에는 더 좁고 정확한 근거가 유리할 수 있습니다. 다음 개선에서는 answer context selection과 citation selection을 분리하는 것이 더 적절하다고 판단했습니다.
+추가 Elice sweep도 같은 방향의 신호를 줬습니다. heading-aware 계열 실험은 top-k를 늘리거나 threshold를 조정하거나 keyword rerank를 추가해도 baseline을 넘지 못했습니다. 즉 병목은 단순 retrieval 후보 개수나 score threshold가 아니라, chunk granularity와 citation 후보 선택 방식에 더 가깝다고 해석했습니다.
+
+이 결과는 chunking 전략이 항상 한 방향으로 좋아지는 것이 아니라, embedding model의 품질과 corpus 구조에 따라 달라진다는 점을 보여줍니다. 특히 답변 생성에는 넓은 문맥이 유리할 수 있고, citation에는 더 좁고 정확한 근거가 유리할 수 있습니다. 따라서 다음 개선은 "chunk를 더 많이 넣기"나 "threshold를 더 강하게 조정하기"보다, answer context selection과 citation selection을 분리하는 방향이 더 적절하다고 판단했습니다.
 
 LLM-as-a-judge 결과도 같은 방향의 시사점을 줍니다. deterministic metric은 expected source와 citation hit를 잘 확인하지만, 답변이 acceptance criteria를 모두 충족했는지는 더 엄격하게 보지 못합니다. Judge는 일부 답변에서 groundedness는 높게 보면서도 correctness를 낮게 평가했습니다. 즉 다음 개선은 단순히 더 많은 chunk를 넣는 것이 아니라, 검색된 문맥에서 어떤 정보를 답변에 반드시 포함해야 하는지 answer construction을 더 명확히 하는 방향이어야 합니다.
 
 ### 7.6 Next Steps
 
-- exact query term overlap과 heading proximity를 반영하는 lightweight reranker를 추가합니다.
+- keyword reranker를 BM25, heading proximity, source diversity를 반영하는 lightweight reranker로 확장합니다.
 - answer context selection과 citation selection을 분리합니다.
 - acceptance criteria coverage를 점검하는 answer checklist 또는 post-generation verifier를 실험합니다.
 - refusal 질문을 ambiguous, partial-answer, policy-like 질문으로 확장합니다.
@@ -625,7 +642,7 @@ Streaming은 필수 요구는 아니지만 사용자 체감 latency를 낮추고
 | Priority | 개선 과제 | 기대 효과 |
 |---|---|---|
 | High | Elice embedding 기준 chunk size, overlap, top-k sweep | Part C에서 관측한 chunk granularity 문제를 정량적으로 재검증 |
-| High | lightweight reranker 추가 | retrieved chunk와 final citation의 expected source hit rate 개선 |
+| High | lightweight reranker 고도화 및 Elice 기준 재검증 | retrieved chunk와 final citation의 expected source hit rate 개선 |
 | High | answer context selection과 citation selection 분리 | 답변용 넓은 문맥과 citation용 좁은 근거를 따로 최적화 |
 | Medium | Korean tokenizer 기반 refusal guard 또는 query rewrite | keyword overlap guard의 paraphrase 취약성 완화 |
 | Medium | paragraph-level citation metric | URL 단위보다 엄격한 grounding 평가 |

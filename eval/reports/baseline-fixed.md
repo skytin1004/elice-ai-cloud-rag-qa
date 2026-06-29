@@ -2,14 +2,15 @@
 
 ## Provider
 
-- Generated at: `2026-06-26T05:32:36.848786+00:00`
+- Generated at: `2026-06-29T00:09:55.135845+00:00`
 - LLM provider: `mock`
 - LLM model/deployment: `extractive-mock-v1`
 - Embedding provider: `local`
 - Embedding model: `hashing-ngrams-v1`
 - Top-k: `3`
 - Min score: `0.0`
-- Git commit: `34747f6`
+- Rerank mode: `none`
+- Git commit: `11b0223`
 - Git branch: `main`
 - Python: `3.12.6`
 - Seed policy: `not used; deterministic retrieval/eval path`

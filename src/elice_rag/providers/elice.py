@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -13,6 +14,9 @@ from elice_rag.config import Settings
 
 class EliceConfigError(RuntimeError):
     pass
+
+
+TRANSIENT_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
 @dataclass
@@ -154,7 +158,12 @@ class EliceEmbeddingClient:
             "input": texts,
         }
         with httpx.Client(timeout=60) as client:
-            response = client.post(url, headers=headers, json=payload)
+            response = _post_json_with_retry(
+                client,
+                url,
+                headers=headers,
+                payload=payload,
+            )
             response.raise_for_status()
         data = response.json()
         return [item["embedding"] for item in data["data"]]
@@ -285,7 +294,7 @@ def _post_chat_with_compat(
     headers: dict[str, str],
     payload: dict,
 ) -> httpx.Response:
-    response = client.post(url, headers=headers, json=payload)
+    response = _post_json_with_retry(client, url, headers=headers, payload=payload)
     for _ in range(3):
         if response.status_code != 400:
             return response
@@ -300,5 +309,28 @@ def _post_chat_with_compat(
             changed = True
         if not changed:
             return response
-        response = client.post(url, headers=headers, json=payload)
+        response = _post_json_with_retry(client, url, headers=headers, payload=payload)
     return response
+
+
+def _post_json_with_retry(
+    client: httpx.Client,
+    url: str,
+    *,
+    headers: dict[str, str],
+    payload: dict,
+    attempts: int = 4,
+    base_sleep_seconds: float = 1.0,
+) -> httpx.Response:
+    for attempt in range(attempts):
+        try:
+            response = client.post(url, headers=headers, json=payload)
+        except httpx.TransportError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(base_sleep_seconds * (2**attempt))
+            continue
+        if response.status_code not in TRANSIENT_STATUS_CODES or attempt == attempts - 1:
+            return response
+        time.sleep(base_sleep_seconds * (2**attempt))
+    raise EliceConfigError("Elice request retry loop ended without a response.")

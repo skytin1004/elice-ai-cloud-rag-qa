@@ -1,15 +1,16 @@
-# Eval Report: improved-heading-threshold
+# Eval Report: heading-top5-threshold
 
 ## Provider
 
-- Generated at: `2026-06-26T05:32:37.707664+00:00`
+- Generated at: `2026-06-29T00:09:55.816926+00:00`
 - LLM provider: `mock`
 - LLM model/deployment: `extractive-mock-v1`
 - Embedding provider: `local`
 - Embedding model: `hashing-ngrams-v1`
 - Top-k: `5`
 - Min score: `0.08`
-- Git commit: `34747f6`
+- Rerank mode: `none`
+- Git commit: `11b0223`
 - Git branch: `main`
 - Python: `3.12.6`
 - Seed policy: `not used; deterministic retrieval/eval path`

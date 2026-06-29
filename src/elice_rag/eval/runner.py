@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--label", default="baseline")
     parser.add_argument("--top-k", type=int)
     parser.add_argument("--min-score", type=float)
+    parser.add_argument("--rerank-mode", choices=["none", "keyword"])
     parser.add_argument(
         "--judge",
         action="store_true",
@@ -36,6 +37,8 @@ def main() -> None:
         os.environ["RAG_TOP_K"] = str(args.top_k)
     if args.min_score is not None:
         os.environ["RAG_MIN_SCORE"] = str(args.min_score)
+    if args.rerank_mode is not None:
+        os.environ["RAG_RERANK_MODE"] = args.rerank_mode
 
     settings = get_settings()
     pipeline = RAGPipeline.from_settings(settings)

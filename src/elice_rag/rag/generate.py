@@ -174,25 +174,54 @@ class RAGPipeline:
     def _usable_chunks(
         self, question: str, retrieved: list[RetrievedChunk]
     ) -> list[RetrievedChunk]:
-        return [
+        chunks = [
             chunk
             for chunk in retrieved
             if chunk.score >= self.settings.rag_min_score
             and self._has_keyword_overlap(question, chunk)
         ]
+        if self.settings.rag_rerank_mode == "keyword":
+            return sorted(
+                chunks,
+                key=lambda chunk: self._keyword_rerank_score(question, chunk),
+                reverse=True,
+            )
+        return chunks
 
     @staticmethod
     def _has_keyword_overlap(question: str, chunk: RetrievedChunk) -> bool:
+        ratio = RAGPipeline._keyword_overlap_ratio(question, chunk)
+        if ratio is None:
+            return True
+        return ratio >= 0.2
+
+    @staticmethod
+    def _keyword_overlap_ratio(question: str, chunk: RetrievedChunk) -> float | None:
         question_terms = {
             term
             for term in TOKEN_RE.findall(question.lower())
             if len(term) >= 2 and term not in STOPWORDS
         }
         if not question_terms:
-            return True
+            return None
         haystack = f"{chunk.title}\n{chunk.heading}\n{chunk.text}".lower()
         hits = {term for term in question_terms if term in haystack}
-        return len(hits) >= 1 and (len(hits) / len(question_terms) >= 0.2)
+        if not hits:
+            return 0.0
+        return len(hits) / len(question_terms)
+
+    @staticmethod
+    def _keyword_rerank_score(question: str, chunk: RetrievedChunk) -> float:
+        ratio = RAGPipeline._keyword_overlap_ratio(question, chunk) or 0.0
+        heading_text = f"{chunk.title} {chunk.heading}".lower()
+        question_terms = {
+            term
+            for term in TOKEN_RE.findall(question.lower())
+            if len(term) >= 2 and term not in STOPWORDS
+        }
+        heading_hits = sum(1 for term in question_terms if term in heading_text)
+        heading_bonus = 0.03 * heading_hits
+        return chunk.score + (0.12 * ratio) + heading_bonus
 
     @staticmethod
     def _looks_insufficient(answer: str) -> bool:

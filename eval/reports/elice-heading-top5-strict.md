@@ -1,14 +1,14 @@
-# Eval Report: heading-top5-threshold
+# Eval Report: heading-top5-strict
 
 ## Provider
 
-- Generated at: `2026-06-29T00:55:44.716160+00:00`
+- Generated at: `2026-06-29T01:02:38.999909+00:00`
 - LLM provider: `elice`
 - LLM model/deployment: `openai/gpt-5-mini`
 - Embedding provider: `elice`
 - Embedding model: `openai/text-embedding-3-small`
 - Top-k: `5`
-- Min score: `0.08`
+- Min score: `0.16`
 - Rerank mode: `none`
 - Git commit: `11b0223`
 - Git branch: `main`

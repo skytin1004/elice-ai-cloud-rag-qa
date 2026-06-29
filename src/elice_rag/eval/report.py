@@ -43,6 +43,7 @@ def write_reports(
         "retrieval": {
             "top_k": settings.rag_top_k,
             "min_score": settings.rag_min_score,
+            "rerank_mode": settings.rag_rerank_mode,
         },
         "reproducibility": {
             "git_commit": _git("rev-parse", "--short", "HEAD"),
@@ -76,6 +77,7 @@ def _render_markdown(payload: dict) -> str:
         f"- Embedding model: `{payload['provider']['embedding_model']}`",
         f"- Top-k: `{payload['retrieval']['top_k']}`",
         f"- Min score: `{payload['retrieval']['min_score']}`",
+        f"- Rerank mode: `{payload['retrieval'].get('rerank_mode', 'none')}`",
         f"- Git commit: `{payload['reproducibility']['git_commit']}`",
         f"- Git branch: `{payload['reproducibility']['git_branch']}`",
         f"- Python: `{payload['reproducibility']['python_version']}`",

@@ -1,3 +1,4 @@
+import httpx
 import pytest
 
 from elice_rag.config import Settings, parse_mapping
@@ -5,6 +6,7 @@ from elice_rag.providers.elice import (
     EliceConfigError,
     _extract_chat_delta,
     _extract_chat_text,
+    _post_json_with_retry,
     _resolve_chat_url,
     _resolve_embedding_url,
     _select_chat_endpoint,
@@ -92,3 +94,27 @@ def test_elice_endpoint_root_allows_provider_to_validate_requested_model():
     )
 
     assert _select_chat_endpoint(settings, "openai/gpt-5-nano") == "https://mlapi.run/mini"
+
+
+def test_elice_post_json_retries_transient_gateway_error():
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(502, json={"error": "temporary gateway error"})
+        return httpx.Response(200, json={"ok": True})
+
+    transport = httpx.MockTransport(handler)
+    with httpx.Client(transport=transport) as client:
+        response = _post_json_with_retry(
+            client,
+            "https://mlapi.run/example/v1/chat/completions",
+            headers={},
+            payload={"messages": []},
+            base_sleep_seconds=0,
+        )
+
+    assert response.status_code == 200
+    assert calls == 2

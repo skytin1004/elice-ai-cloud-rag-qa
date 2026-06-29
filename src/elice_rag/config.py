@@ -52,6 +52,7 @@ class Settings:
     rag_top_k: int = 5
     rag_min_score: float = 0.08
     rag_max_context_chars: int = 12000
+    rag_rerank_mode: str = "none"
     sources_path: Path = PROJECT_ROOT / "data" / "sources.json"
     raw_dir: Path = PROJECT_ROOT / "data" / "raw"
     processed_dir: Path = PROJECT_ROOT / "data" / "processed"
@@ -81,6 +82,7 @@ def get_settings() -> Settings:
         rag_top_k=int(os.getenv("RAG_TOP_K", "5")),
         rag_min_score=float(os.getenv("RAG_MIN_SCORE", "0.08")),
         rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "12000")),
+        rag_rerank_mode=os.getenv("RAG_RERANK_MODE", "none").lower(),
         azure_openai_api_key=os.getenv("AZURE_OPENAI_API_KEY", ""),
         azure_openai_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT", "").rstrip("/"),
         azure_openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION", ""),
