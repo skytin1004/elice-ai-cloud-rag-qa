@@ -474,7 +474,7 @@ Judge 결과는 deterministic metric보다 엄격했습니다. 예를 들어 ret
 
 ### 6.4 Evaluation 재현성
 
-Report에는 다음 정보를 기록합니다.
+Report에는 다음 정보를 기록했습니다.
 
 - provider
 - model/deployment
@@ -487,8 +487,6 @@ Report에는 다음 정보를 기록합니다.
 - seed policy
 - judge policy
 - judge model and rubric policy, when `--judge` is enabled
-
-현재 retrieval과 deterministic metric 계산은 random sampling을 사용하지 않습니다. Report에는 `seed: not used; deterministic retrieval/eval path`가 기록됩니다. `--judge`를 켠 경우 judge model과 `temperature=0.0`, 고정 rubric 사용 여부가 함께 기록됩니다.
 
 ### 6.5 Metric의 한계
 
