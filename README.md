@@ -463,7 +463,7 @@ LLM-as-a-judge 포함 평가:
 python -m elice_rag.eval.runner --gold eval/gold_set.jsonl --out eval/reports/elice-final-judge.md --label elice-final-judge --judge
 ```
 
-기본 heading-aware 설정 기준 Elice 평가 결과:
+heading-aware 가설 설정 기준 Elice 평가 결과:
 
 | Metric | Score |
 |---|---:|
@@ -472,7 +472,7 @@ python -m elice_rag.eval.runner --gold eval/gold_set.jsonl --out eval/reports/el
 | refusal_accuracy | 1.0000 |
 | faithfulness | 0.9250 |
 
-이 결과는 Elice Serverless `openai/gpt-5-mini`와 Elice Text Embedding 3 Small `openai/text-embedding-3-small` 조합으로 Gold Set 20문항 전체를 실행한 결과입니다. Part C의 recovery 실험에서는 broad fixed-size 설정이 deterministic metric을 회복했으므로, 이 표는 "최종 권장 chunking"이 아니라 heading-aware 가설을 검증한 기본 Elice run으로 해석했습니다.
+이 결과는 heading-aware 가설 설정에서 Elice Serverless `openai/gpt-5-mini`와 Elice Text Embedding 3 Small `openai/text-embedding-3-small` 조합으로 Gold Set 20문항 전체를 실행한 결과입니다. Part C의 recovery 실험에서는 broad fixed-size 설정이 deterministic metric을 회복했으므로, 이 표는 "최종 권장 chunking"이 아니라 heading-aware 가설을 검증한 Elice run으로 해석했습니다.
 
 LLM-as-a-judge 보조 평가 결과:
 
