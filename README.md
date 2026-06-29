@@ -131,8 +131,6 @@ ELICE_EMBEDDING_BASE_URL=https://mlapi.run/{embedding-endpoint-id}
 ELICE_EMBEDDING_MODEL=openai/text-embedding-3-small
 ```
 
-`ELICE_BASE_URL`은 chat completion용 OpenAI-compatible `/v1` base URL입니다. `ELICE_EMBEDDING_BASE_URL`은 embedding endpoint의 root URL 또는 `/v1` base URL을 사용할 수 있으며, provider adapter에서 `/v1/embeddings` 호출 URL로 정규화합니다.
-
 > [!NOTE]
 >
 > Provider는 모델 호출부를 교체 가능하게 두기 위해 분리했습니다.
@@ -230,7 +228,7 @@ python -m pytest
 
 ## 3. Dataset 선택 근거
 
-선택한 corpus는 Elice AI Cloud 공식 문서 20개입니다. 문서 범위는 ML API, Serverless, API Key, 모델 라이브러리, Runbox, DataHub, FAQ를 포함합니다. 수집 대상은 `data/sources.json`에 URL manifest로 관리합니다.
+Dataset은 Elice AI Cloud의 공식 문서에서 ML API, Serverless, API Key, 모델 라이브러리, Runbox, DataHub, FAQ를 포함한 20개를 선정했습니다. 수집 대상은 `data/sources.json`에 URL manifest로 관리하고 있습니다.
 
 | Path | 설명 |
 |---|---|
@@ -241,7 +239,7 @@ python -m pytest
 
 선정 이유:
 
-- 과제에서 실제로 다루는 Elice AI Cloud와 직접 연결됩니다.
+- 과제에서 실제로 다루는 Elice AI Cloud와 직접 연결되는 Dataset이기 때문입니다.
 - 답변 가능한 질문과 답변하면 안 되는 질문을 모두 만들 수 있습니다.
 - source URL을 citation과 evaluation의 기준으로 사용할 수 있습니다.
 - 실행 시 자동 다운로드할 수 있어 재현성이 좋습니다.
@@ -249,17 +247,19 @@ python -m pytest
 Trade-off:
 
 - 장점: 공식 문서라 근거성과 검증 가능성이 높습니다.
-- 단점: Elice 문서에 특화되어 open-domain QA 성능을 대표하지는 않습니다.
+- 단점: Elice 문서에 특화되어 있으므로 일반적인 해당분야의 도메인의 성능을 대표하지는 않습니다.
 
 ## 4. 모델 및 기술 스택 선정 근거
 
 ### 4.1 모델 선정
 
-최종 chat model은 Elice Serverless `openai/gpt-5-mini`입니다.
+최종적으로 Elice Serverless `openai/gpt-5-mini`와 Elice Serverless `openai/text-embedding-3-small` 조합을 선택했습니다.
+
+Chat model은 Elice Serverless `openai/gpt-5-mini`을 선택했습니다.
 
 `gpt-5-nano`도 비용과 latency 면에서 장점이 있지만, 제출용 RAG QA에서는 문서 근거를 읽고 답변을 안정적으로 구성하는 능력을 더 중요하게 보았습니다. 그래서 기본 모델은 `gpt-5-mini`로 선택했습니다.
 
-최종 embedding model은 Elice Serverless `openai/text-embedding-3-small`입니다.
+Embedding model은 Elice Serverless `openai/text-embedding-3-small`를 선택했습니다.
 
 Text Embedding 3 Small을 선택한 이유:
 
